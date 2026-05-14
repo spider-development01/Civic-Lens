@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicLens - Verified Investigative Dossier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --smooth: cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f0f4f8;
+            color: #0f172a; 
+            overflow-x: hidden;
+        }
+        /* Dynamic Apple-style Mesh Background */
+        .bg-mesh {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(at 0% 0%, hsla(210, 100%, 95%, 1) 0px, transparent 50%),
+                        radial-gradient(at 100% 0%, hsla(250, 100%, 95%, 1) 0px, transparent 50%),
+                        radial-gradient(at 100% 100%, hsla(190, 100%, 95%, 1) 0px, transparent 50%),
+                        radial-gradient(at 0% 100%, hsla(220, 100%, 95%, 1) 0px, transparent 50%);
+            z-index: -1;
+            filter: blur(40px);
+        }
+        /* Apple Vision / Glassmorphism Cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            border-radius: 2rem;
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255,255,255,0.8);
+            transition: transform 0.4s var(--smooth), box-shadow 0.4s var(--smooth);
+        }
+        .glass-card:hover {
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255,255,255,1);
+        }
+        /* Google Material You interactive buttons */
+        .btn-vote {
+            transition: all 0.3s var(--spring);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-vote:active { transform: scale(0.92); }
+        
+        /* Dossier Evidence Card */
+        .dossier-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .dossier-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+        }
+        .dossier-img-container {
+            height: 120px;
+            overflow: hidden;
+            position: relative;
+            background: #f8fafc;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .dossier-img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.7s var(--smooth);
+        }
+        .dossier-card:hover .dossier-img-container img { transform: scale(1.05); }
+        
+        /* Animations */
+        .fade-in-up { animation: fadeInUp 0.8s var(--smooth) forwards; opacity: 0; }
+        @keyframes fadeInUp { 
+            from { opacity: 0; transform: translateY(20px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+        
+        /* Badges & Tags */
+        .badge { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; padding: 0.35rem 0.75rem; border-radius: 999px; }
+        .badge-active { background: rgba(22, 163, 74, 0.1); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.2); }
+        .badge-pending { background: rgba(202, 138, 4, 0.1); color: #ca8a04; border: 1px solid rgba(202, 138, 4, 0.2); }
+        .badge-alert { background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2); }
+        
+        .party-tag-bjp { background: rgba(255, 153, 0, 0.1); color: #f97316; border: 1px solid rgba(255, 153, 0, 0.2); }
+        .party-tag-inc { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+        .party-tag-aap { background: rgba(14, 165, 233, 0.1); color: #0ea5e9; border: 1px solid rgba(14, 165, 233, 0.2); }
+
+        /* Citation Link Style */
+        .citation-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            background: #e2e8f0;
+            color: #475569;
+            padding: 0.15rem 0.5rem;
+            border-radius: 0.375rem;
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-left: 0.25rem;
+            vertical-align: middle;
+        }
+        .citation-btn:hover { background: #cbd5e1; color: #0f172a; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center relative">
+
+    <div class="bg-mesh"></div>
+
+    <div class="max-w-4xl w-full flex-grow">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-10 fade-in-up pt-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-900/20">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                </div>
+                <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Civic Lens</h1>
+            </div>
+            <div class="text-xs font-bold text-slate-500 bg-white/60 backdrop-blur-md px-4 py-2 rounded-full border border-slate-200 shadow-sm uppercase tracking-wider">
+                Educational & Objective Tracker
+            </div>
+        </header>
+
+        <!-- Pre-Vote: Voting Section -->
+        <div id="voting-section" class="fade-in-up delay-100">
+            <div class="mb-8 px-2">
+                <h2 class="text-3xl font-extrabold mb-2 text-slate-900 tracking-tight">Cast Your Vote</h2>
+                <p class="text-slate-500 text-base font-medium">Select a party to view their objective Manifesto vs. Reality tracker and official investigative dossiers.</p>
+            </div>
+
+            <div class="space-y-5">
+                <!-- BJP -->
+                <div class="glass-card p-5 flex items-center justify-between">
+                    <div class="flex items-center gap-5">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-100 to-orange-50 text-orange-600 flex items-center justify-center p-3 shadow-inner border border-orange-200/50">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Logo_of_the_Bharatiya_Janata_Party.svg/1280px-Logo_of_the_Bharatiya_Janata_Party.svg.png?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail" alt="" srcset="">
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-xl text-slate-900 leading-tight">Bharatiya Janata Party</h3>
+                            <p class="text-sm font-semibold text-slate-400 mt-0.5 tracking-wide">BJP</p>
+                        </div>
+                    </div>
+                    <button onclick="castVote('BJP')" class="btn-vote bg-white text-orange-600 border border-orange-200 hover:bg-orange-50 hover:border-orange-300 font-bold py-2.5 px-7 rounded-full text-sm shadow-sm">
+                        Select
+                    </button>
+                </div>
+
+                <!-- INC -->
+                <div class="glass-card p-5 flex items-center justify-between">
+                    <div class="flex items-center gap-5">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-700 flex items-center justify-center p-3 shadow-inner border border-emerald-200/50">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Indian_National_Congress_hand_logo.svg/960px-Indian_National_Congress_hand_logo.svg.png" alt="" srcset="">
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-xl text-slate-900 leading-tight">Indian National Congress</h3>
+                            <p class="text-sm font-semibold text-slate-400 mt-0.5 tracking-wide">INC</p>
+                        </div>
+                    </div>
+                    <button onclick="castVote('INC')" class="btn-vote bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 font-bold py-2.5 px-7 rounded-full text-sm shadow-sm">
+                        Select
+                    </button>
+                </div>
+
+                <!-- AAP -->
+                <div class="glass-card p-5 flex items-center justify-between">
+                    <div class="flex items-center gap-5">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-100 to-sky-50 text-sky-500 flex items-center justify-center p-3 shadow-inner border border-sky-200/50">
+                           <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Aam_Aadmi_Party_logo_%28English%29.svg/3840px-Aam_Aadmi_Party_logo_%28English%29.svg.png" alt="" srcset="">
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-xl text-slate-900 leading-tight">Aam Aadmi Party</h3>
+                            <p class="text-sm font-semibold text-slate-400 mt-0.5 tracking-wide">AAP</p>
+                        </div>
+                    </div>
+                    <button onclick="castVote('AAP')" class="btn-vote bg-white text-sky-600 border border-sky-200 hover:bg-sky-50 hover:border-sky-300 font-bold py-2.5 px-7 rounded-full text-sm shadow-sm">
+                        Select
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Post-Vote: Thank You Message -->
+        <div id="thank-you-section" class="hidden text-center glass-card p-10 mb-10 fade-in-up relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-b from-green-50/50 to-transparent pointer-events-none"></div>
+            <div class="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/20">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h2 class="text-3xl font-extrabold text-slate-900 mb-3 tracking-tight">Vote Secured</h2>
+            <p class="text-slate-500 font-medium text-lg">Thank you for fulfilling your civic duty. Your vote for <strong id="voted-party-name" class="text-slate-900 font-extrabold"></strong> has been recorded.</p>
+        </div>
+
+        <!-- NEW SECTION: Manifesto vs. Reality Tracker (Educational/Neutral) -->
+        <div id="manifesto-section" class="hidden fade-in-up delay-100 mt-12 mb-8">
+            <div class="mb-6 px-2 border-b border-slate-300 pb-4">
+                <h2 class="text-2xl font-extrabold mb-2 text-slate-900 tracking-tight flex items-center gap-2">
+                    <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Manifesto vs. Reality Tracker
+                </h2>
+                <p class="text-slate-500 text-sm font-medium">An objective, educational review of key electoral promises and their actual implementation status.</p>
+            </div>
+
+            <!-- BJP Promises -->
+            <div class="manifesto-card glass-card p-6 border-l-4 border-l-orange-500" data-party="BJP">
+                <h3 class="text-lg font-bold text-slate-900 mb-4">BJP: Key Achievements & Implementations</h3>
+                <div class="space-y-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-slate-800 text-sm">Abrogation of Article 370</h4>
+                            <span class="badge badge-active">Implemented</span>
+                        </div>
+                        <p class="text-sm text-slate-600"><strong>Promise:</strong> Integrate Jammu & Kashmir fully into India. <br><strong>Reality:</strong> Successfully fulfilled in August 2019 via parliamentary resolution. <a href="https://en.wikipedia.org/wiki/Revocation_of_the_special_status_of_Jammu_and_Kashmir" target="_blank" class="citation-btn">Verify Source</a></p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-slate-800 text-sm">Infrastructure & Economy</h4>
+                            <span class="badge badge-active">Significant Progress</span>
+                        </div>
+                        <p class="text-sm text-slate-600"><strong>Promise:</strong> Modernize infrastructure and boost GDP. <br><strong>Reality:</strong> India became the 5th largest economy. Massive expansions in national highways (Bharatmala) and railways (Vande Bharat). <a href="https://www.worldbank.org/en/country/india/overview" target="_blank" class="citation-btn">Verify Source</a></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INC Promises -->
+            <div class="manifesto-card glass-card p-6 border-l-4 border-l-blue-500" data-party="INC">
+                <h3 class="text-lg font-bold text-slate-900 mb-4">INC: Key Achievements & Implementations</h3>
+                <div class="space-y-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-slate-800 text-sm">Rights-Based Legislation</h4>
+                            <span class="badge badge-active">Implemented</span>
+                        </div>
+                        <p class="text-sm text-slate-600"><strong>Promise:</strong> Empower citizens with legal rights to information and education. <br><strong>Reality:</strong> Successfully passed the landmark Right to Information (RTI) Act in 2005 and Right to Education (RTE) Act in 2009. <a href="https://rti.gov.in/" target="_blank" class="citation-btn">Verify Source</a></p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-slate-800 text-sm">Rural Employment Guarantee</h4>
+                            <span class="badge badge-active">Implemented</span>
+                        </div>
+                        <p class="text-sm text-slate-600"><strong>Promise:</strong> Provide guaranteed wage employment to rural households. <br><strong>Reality:</strong> Enacted MGNREGA in 2005, which became one of the world's largest social security programs. <a href="https://nrega.nic.in/" target="_blank" class="citation-btn">Verify Source</a></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AAP Promises -->
+            <div class="manifesto-card glass-card p-6 border-l-4 border-l-sky-500" data-party="AAP">
+                <h3 class="text-lg font-bold text-slate-900 mb-4">AAP: Key Achievements & Implementations</h3>
+                <div class="space-y-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-slate-800 text-sm">Basic Utilities Subsidy</h4>
+                            <span class="badge badge-active">Implemented</span>
+                        </div>
+                        <p class="text-sm text-slate-600"><strong>Promise:</strong> Reduce the financial burden of basic utilities on common citizens. <br><strong>Reality:</strong> Successfully provided free electricity up to 200 units and free water up to 20KL per month in Delhi. <a href="https://delhi.gov.in/" target="_blank" class="citation-btn">Verify Source</a></p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-slate-800 text-sm">Healthcare & Education Reform</h4>
+                            <span class="badge badge-active">Significant Progress</span>
+                        </div>
+                        <p class="text-sm text-slate-600"><strong>Promise:</strong> Revolutionize primary healthcare and public schools. <br><strong>Reality:</strong> Established over 500 Aam Aadmi Mohalla Clinics and highly praised modernizations of Delhi Govt School infrastructure. <a href="https://en.wikipedia.org/wiki/Aam_Aadmi_Mohalla_Clinics" target="_blank" class="citation-btn">Verify Source</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Post-Vote: Corruption Tracker (Filtered Dossier) -->
+        <div id="records-section" class="hidden fade-in-up delay-200 mt-12 mb-8">
+            <div class="mb-8 px-2">
+                <h2 class="text-2xl font-extrabold mb-2 text-slate-900 tracking-tight flex items-center gap-2">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Investigative Dossier: <span id="dossier-party-name"></span>
+                </h2>
+                <p class="text-slate-500 text-sm font-medium">Verified court rulings, official indictments, and primary source documents related to controversies.</p>
+            </div>
+
+            <div class="space-y-8">
+                
+                <!-- ========== BJP RECORDS ========== -->
+                
+                <div class="record-card glass-card p-7" data-party="BJP">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex gap-3 items-center flex-wrap">
+                            <span class="badge badge-active">Supreme Court Ruling</span>
+                            <span class="badge party-tag-bjp">BJP</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Feb 15, 2024</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Electoral Bonds Scandal</h3>
+                    <p class="text-base text-slate-700 mb-4 leading-relaxed">
+                        <strong class="text-slate-900">The Facts:</strong> On Feb 15, 2024, the Supreme Court struck down the Electoral Bonds scheme as unconstitutional <a href="https://www.livelaw.in/top-stories/supreme-court-strikes-down-electoral-bonds-scheme-as-unconstitutional-249539" target="_blank" class="citation-btn">Verify Source</a>. SBI data revealed the BJP encashed <strong>₹6,060 Crore</strong> (approx. 50% of the total). Investigative reports cross-referencing this data found a quid pro quo pattern: 30 companies donated ₹335 Crore to the BJP concurrently with facing ED/CBI raids, effectively acting as protection money.
+                    </p>
+                    
+                    <div class="bg-orange-50/50 border border-orange-100 rounded-lg p-4 mb-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">₹6,060 Cr</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">BJP Received</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">Unconstitutional</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">SC Verdict (2024)</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">30</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Raided Donors</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">₹335 Cr</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">From Raided Firms</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5 pt-5 border-t border-slate-200/60 bg-slate-50/50 -mx-7 -mb-7 p-7 rounded-b-2xl">
+                        <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Primary Sources & Citations
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="https://www.livelaw.in/top-stories/supreme-court-strikes-down-electoral-bonds-scheme-as-unconstitutional-249539" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://plus.unsplash.com/premium_photo-1697730373168-254777738f53?q=80&w=1140&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Supreme Court">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT A</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">SC Judgment - Unconstitutional</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: LiveLaw / SC Registry</p>
+                                </div>
+                            </a>
+                            <a href="https://gijn.org/stories/reporting-electoral-bonds-exposed-political-fundraising/" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://media.springernature.com/full/springer-static/image/art%3A10.1057%2Fs41599-025-06201-z/MediaObjects/41599_2025_6201_Fig1_HTML.png" alt="Financial Data">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT B</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">SBI Electoral Bonds Data</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: The GJIN / SBI</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="record-card glass-card p-7" data-party="BJP">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex gap-3 items-center flex-wrap">
+                            <span class="badge badge-pending">Investigative Report</span>
+                            <span class="badge party-tag-bjp">BJP</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">April 2024</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">The CBI/ED "Washing Machine" Effect</h3>
+                    <p class="text-base text-slate-700 mb-4 leading-relaxed">
+                        <strong class="text-slate-900">The Facts:</strong> An exhaustive April 2024 investigation by The Indian Express verified that since 2014, <strong>25 prominent opposition politicians</strong> facing severe CBI or ED corruption probes switched to the BJP <a href="https://indianexpress.com/article/express-exclusive/since-2014-25-opposition-leaders-facing-corruption-probe-crossed-over-to-bjp-23-of-them-got-reprieve-9247737/" target="_blank" class="citation-btn">Verify Source</a>. Post-defection, <strong>23 of these 25 leaders (92%)</strong> received a reprieve—their cases were formally closed, stalled, or put in cold storage.
+                    </p>
+
+                    <div class="bg-orange-50/50 border border-orange-100 rounded-lg p-4 mb-4">
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">25</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Leaders Switched</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">23</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Got Reprieve</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">92%</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Success Rate</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 pt-5 border-t border-slate-200/60 bg-slate-50/50 -mx-7 -mb-7 p-7 rounded-b-2xl">
+                        <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Primary Sources & Citations
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="https://indianexpress.com/article/express-exclusive/since-2014-25-opposition-leaders-facing-corruption-probe-crossed-over-to-bjp-23-of-them-got-reprieve-9247737/" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=600&q=80" alt="Investigation Documents">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT A</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">Indian Express Investigation</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: The Indian Express</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="record-card glass-card p-7" data-party="BJP">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex gap-3 items-center flex-wrap">
+                            <span class="badge badge-alert">US Federal Indictment</span>
+                            <span class="badge party-tag-bjp">BJP</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Nov 20, 2024</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Adani Group US Bribery Indictment</h3>
+                    <p class="text-base text-slate-700 mb-4 leading-relaxed">
+                        <strong class="text-slate-900">The Facts:</strong> On Nov 20, 2024, the US Department of Justice unsealed a 5-count criminal indictment against Gautam Adani <a href="https://www.justice.gov/usao-edny/pr/gautam-adani-and-seven-other-business-executives-indicted-connection-multibillion" target="_blank" class="citation-btn">Verify Source</a>. The charges allege he orchestrated a scheme to pay <strong>$250 million in bribes</strong> to Indian government officials to secure solar energy contracts. Adani's wealth has grown massively during the current administration, raising severe questions about regulatory favoritism.
+                    </p>
+                    
+                    <div class="bg-orange-50/50 border border-orange-100 rounded-lg p-4 mb-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">$250M</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Alleged Bribes</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">5</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Criminal Counts</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">Nov 2024</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">DOJ Indictment</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-600">1,700%</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Wealth Growth</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5 pt-5 border-t border-slate-200/60 bg-slate-50/50 -mx-7 -mb-7 p-7 rounded-b-2xl">
+                        <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Primary Sources & Citations
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="https://www.sec.gov/enforcement-litigation/litigation-releases/lr-26177" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://images.unsplash.com/photo-1589391886645-d51941baf7fb?auto=format&fit=crop&w=600&q=80" alt="DOJ Gavel">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT A</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">US SECURITIES & EXCHANGE COMMISSION</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: SEC</p>
+                                </div>
+                            </a>
+                            <a href="https://hindenburgresearch.com/adani/" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=600&q=80" alt="Solar Energy">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT B</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">Hindenburg Fraud Investigation</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: Hindenburg Research</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== INC RECORDS ========== -->
+
+                <div class="record-card glass-card p-7" data-party="INC">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex gap-3 items-center flex-wrap">
+                            <span class="badge badge-active">Court Acquittal 2017</span>
+                            <span class="badge party-tag-inc">INC</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">2008 / Dec 2017</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">2G Spectrum Scam & 2017 Acquittals</h3>
+                    <p class="text-base text-slate-700 mb-4 leading-relaxed">
+                        <strong class="text-slate-900">The Facts:</strong> The CAG originally alleged a ₹1.76 Lakh Crore presumptive loss in 2G spectrum allocations. However, on Dec 21, 2017, a Special CBI Court <strong>acquitted all 18 accused</strong> <a href="https://www.businesstoday.in/industry/telecom/story/2g-scam-verdict-a-raja-kanimozhi-cag-vinod-rai-spectrum-87503-2017-12-21" target="_blank" class="citation-btn">Verify Source</a>. The judge ruled that the CBI "miserably failed to prove any charge" and that the scam was created by "artfully arranging a few selected facts." The Supreme Court had previously cancelled 122 licenses in 2012.
+                    </p>
+
+                    <div class="bg-blue-50/50 border border-blue-100 rounded-lg p-4 mb-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-blue-600">₹1.76L Cr</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">CAG Alleged Loss</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-600">18</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Total Accused</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-green-600">100%</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Acquitted in 2017</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-600">122</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Licenses Cancelled</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5 pt-5 border-t border-slate-200/60 bg-slate-50/50 -mx-7 -mb-7 p-7 rounded-b-2xl">
+                        <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Primary Sources & Citations
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="https://www.businesstoday.in/industry/telecom/story/2g-scam-verdict-a-raja-kanimozhi-cag-vinod-rai-spectrum-87503-2017-12-21" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://images.unsplash.com/photo-1602823284936-463177448097?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Court">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT A</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">CBI Court Acquittal Order</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: Business Today / Court</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="record-card glass-card p-7" data-party="INC">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex gap-3 items-center flex-wrap">
+                            <span class="badge badge-alert">CAG Report</span>
+                            <span class="badge party-tag-inc">INC</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">2004-2009</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Coal Block Allocation (Coalgate)</h3>
+                    <p class="text-base text-slate-700 mb-4 leading-relaxed">
+                        <strong class="text-slate-900">The Facts:</strong> A 2012 CAG report accused the UPA government of allocating 194 coal blocks without competitive bidding between 2004 and 2009, estimating a financial loss of <strong>₹1.86 Lakh Crore</strong> <a href="https://en.wikipedia.org/wiki/Indian_coal_allocation_scam" target="_blank" class="citation-btn">Verify Source</a>. In 2014, the Supreme Court ruled the allocations illegal and formally cancelled 214 coal blocks.
+                    </p>
+                    
+                    <div class="bg-blue-50/50 border border-blue-100 rounded-lg p-4 mb-4">
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-blue-600">₹1.86L Cr</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">CAG Alleged Loss</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-600">194</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Unauctioned Blocks</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-600">214</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Cancelled by SC</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 pt-5 border-t border-slate-200/60 bg-slate-50/50 -mx-7 -mb-7 p-7 rounded-b-2xl">
+                        <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Primary Sources & Citations
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="https://en.wikipedia.org/wiki/Indian_coal_allocation_scam" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://images.unsplash.com/photo-1693774557231-e2be6c3594e8?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Coal Mining">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT A</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">CAG Report & SC Orders</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: Wikipedia / CAG</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== AAP RECORDS ========== -->
+
+                <div class="record-card glass-card p-7" data-party="AAP">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex gap-3 items-center flex-wrap">
+                            <span class="badge badge-alert">ED/CBI Investigation</span>
+                            <span class="badge party-tag-aap">AAP</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">2021-2024</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Delhi Liquor Policy Case</h3>
+                    <p class="text-base text-slate-700 mb-4 leading-relaxed">
+                        <strong class="text-slate-900">The Facts:</strong> The CBI and ED allege that the AAP government's 2021-22 excise policy was manipulated to favor certain liquor businessmen in exchange for <strong>₹100 Crore in kickbacks</strong> <a href="https://www.ndtv.com/india-news/arvind-kejriwal-arrest-arvind-kejriwal-arrested-by-cbi-in-liquor-policy-case-5992337" target="_blank" class="citation-btn">Verify Source</a>. Following the arrests of Deputy CM Manish Sisodia and others, Chief Minister <strong>Arvind Kejriwal was arrested</strong> by the ED in March 2024. The controversial policy was subsequently scrapped.
+                    </p>
+
+                    <div class="bg-sky-50/50 border border-sky-100 rounded-lg p-4 mb-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <div class="text-2xl font-bold text-sky-600">₹100 Cr</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Alleged Kickbacks</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-red-600">CM</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Kejriwal Arrested</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-sky-600">3</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Top Leaders Jailed</div>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-sky-600">Scrapped</div>
+                                <div class="text-xs text-slate-600 font-semibold mt-1">Policy Status</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5 pt-5 border-t border-slate-200/60 bg-slate-50/50 -mx-7 -mb-7 p-7 rounded-b-2xl">
+                        <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Primary Sources & Citations
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="https://www.bbc.com/news/articles/ckg14d5y07xo" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://images.unsplash.com/photo-1508253730651-e5ace80a7025?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Liquor bottles">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT A</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">CBI/ED Arrest Records</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: NDTV / CBI</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="record-card glass-card p-7" data-party="AAP">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex gap-3 items-center flex-wrap">
+                            <span class="badge badge-pending">Ongoing Probe</span>
+                            <span class="badge party-tag-aap">AAP</span>
+                        </div>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">2020-2022</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">"Sheesh Mahal" Residence Renovation</h3>
+                    <p class="text-base text-slate-700 mb-4 leading-relaxed">
+                        <strong class="text-slate-900">The Facts:</strong> CM Arvind Kejriwal faced severe backlash and an official probe after it was revealed that approximately <strong>₹45 Crore of public funds</strong> were spent renovating his official residence during the COVID-19 pandemic <a href="https://www.indiatoday.in/india/story/cm-residence-renovation-row-delhi-lg-writes-to-aap-govt-over-alleged-misuse-of-public-funds-2488899-2024-01-06" target="_blank" class="citation-btn">Verify Source</a>. The expenditure included imported marble and luxury fixtures, contradicting the party's anti-VIP culture stance. AAP later admitted to spending ₹33 Crore.
+                    </p>
+                    
+                    <div class="mt-5 pt-5 border-t border-slate-200/60 bg-slate-50/50 -mx-7 -mb-7 p-7 rounded-b-2xl">
+                        <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Primary Sources & Citations
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <a href="https://www.indiatoday.in/india/story/delhi-chief-minister-arvind-kejriwal-beautification-official-residence-peak-covid-bjp-claim-2364639-2023-04-25" target="_blank" class="dossier-card">
+                                <div class="dossier-img-container">
+                                    <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80" alt="Mansion">
+                                    <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">EXHIBIT A</div>
+                                </div>
+                                <div class="p-3">
+                                    <p class="text-xs font-bold text-slate-800 truncate">LG Report on Misuse of Funds</p>
+                                    <p class="text-[10px] text-slate-500 mt-1 uppercase">Source: India Today / LG Office</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer Signature -->
+    <footer class="w-full text-center py-8 mt-auto fade-in-up delay-200">
+        <div class="inline-flex items-center justify-center px-5 py-2 rounded-full bg-slate-900/5 backdrop-blur-md border border-slate-900/10 text-sm font-bold text-slate-500 tracking-wide">
+            Created by Gurjot Singh
+        </div>
+    </footer>
+
+    <script>
+        // --- SUPABASE SETUP ---
+        const SUPABASE_URL = 'https://zdlloyoiyuyypduhvtiz.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkbGxveW9peXV5eXBkdWh2dGl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDQyNTEsImV4cCI6MjA5NDMyMDI1MX0.IicU-24sd_9R-m0mLWXfZN_XpiykVZfX3mZpcvY_NBY';
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        document.addEventListener("DOMContentLoaded", () => {
+            checkVoteStatus();
+        });
+
+        function checkVoteStatus() {
+            const votedParty = localStorage.getItem('civicLens_votedParty');
+            if (votedParty) {
+                // 1. Hide Voting Section
+                document.getElementById('voting-section').style.display = 'none';
+                
+                // 2. Show Thank You Section
+                const thankYou = document.getElementById('thank-you-section');
+                thankYou.classList.remove('hidden');
+                document.getElementById('voted-party-name').innerText = votedParty;
+
+                // 3. Show & Filter Manifesto Section
+                const manifestoSection = document.getElementById('manifesto-section');
+                manifestoSection.classList.remove('hidden');
+
+                const manifestoCards = document.querySelectorAll('.manifesto-card');
+                manifestoCards.forEach(card => {
+                    if (card.getAttribute('data-party') === votedParty) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // 4. Show & Filter Records Section
+                const recordsSection = document.getElementById('records-section');
+                recordsSection.classList.remove('hidden');
+                
+                // Update Dossier Title Color
+                const titleSpan = document.getElementById('dossier-party-name');
+                titleSpan.innerText = votedParty;
+                if(votedParty === 'BJP') titleSpan.className = 'text-orange-600';
+                if(votedParty === 'INC') titleSpan.className = 'text-blue-600';
+                if(votedParty === 'AAP') titleSpan.className = 'text-sky-500';
+
+                // Strictly Filter Controversy Cards based on the user's vote
+                const cards = document.querySelectorAll('.record-card');
+                cards.forEach(card => {
+                    if (card.getAttribute('data-party') === votedParty) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        async function castVote(party) {
+            if (localStorage.getItem('civicLens_votedParty')) {
+                alert("You have already voted on this device.");
+                return;
+            }
+            try {
+                const { error } = await supabaseClient.from('votes').insert([{ party: party }]);
+                if (error) throw error;
+
+                localStorage.setItem('civicLens_votedParty', party);
+                
+                // Add a smooth scroll to top before revealing dossier
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                setTimeout(() => {
+                    checkVoteStatus();
+                }, 400); // Slight delay for smooth transition
+
+            } catch (error) {
+                console.error('Error casting vote:', error.message);
+                alert('Connection error. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

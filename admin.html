@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicLens - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Added ApexCharts for beautiful graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --smooth: cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f4f7fa; 
+            color: #0f172a; 
+            overflow-x: hidden;
+        }
+        /* Dashboard Mesh Background */
+        .bg-mesh {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(at 100% 0%, hsla(210, 50%, 92%, 1) 0px, transparent 50%),
+                        radial-gradient(at 0% 100%, hsla(220, 40%, 94%, 1) 0px, transparent 50%);
+            z-index: -1;
+            filter: blur(50px);
+        }
+        /* Premium Dashboard Cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            border-radius: 2rem;
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255,255,255,1);
+            transition: transform 0.4s var(--smooth), box-shadow 0.4s var(--smooth);
+        }
+        .glass-card:hover {
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255,255,255,1);
+        }
+        /* Vibrant Progress Bars */
+        .progress-track {
+            background: rgba(15, 23, 42, 0.05);
+            border-radius: 999px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .progress-bar { 
+            transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1); 
+            box-shadow: inset 0 -2px 5px rgba(0,0,0,0.1);
+        }
+        /* Status Dot Animation */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .status-dot {
+            height: 10px; width: 10px; border-radius: 50%;
+            background-color: #10b981;
+            animation: pulse-ring 2s infinite;
+        }
+        /* ApexCharts Customization */
+        .apexcharts-tooltip {
+            border-radius: 12px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid rgba(255,255,255,0.8) !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(10px) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center relative">
+
+    <div class="bg-mesh"></div>
+
+    <div class="max-w-6xl w-full flex-grow flex flex-col md:flex-row gap-8 mt-4">
+        
+        <!-- Sidebar / Left Column -->
+        <div class="w-full md:w-1/3 flex flex-col gap-8">
+            
+            <!-- Header Card (Dark Mode Glass) -->
+            <div class="glass-card !bg-slate-900/90 !border-slate-800 text-white p-8">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-md">
+                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </div>
+                    <h1 class="text-2xl font-extrabold tracking-tight">Admin Panel</h1>
+                </div>
+                <p class="text-xs text-slate-400 uppercase tracking-widest font-extrabold mb-2">Total Votes Cast</p>
+                <h2 id="total-votes" class="text-6xl font-extrabold mb-4 tracking-tighter">0</h2>
+                <div class="flex items-center gap-2 text-sm text-emerald-400 font-bold bg-emerald-400/10 inline-flex px-3 py-1.5 rounded-full border border-emerald-400/20">
+                    <div class="status-dot"></div>
+                    Live Sync Active
+                </div>
+            </div>
+
+            <!-- Analytics Bar Chart -->
+            <div class="glass-card p-6 pb-2">
+                <div class="flex justify-between items-center mb-2 px-2">
+                    <h3 class="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Live Comparison</h3>
+                    <div class="flex gap-1">
+                        <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                        <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                        <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                    </div>
+                </div>
+                <!-- The ApexChart will render here -->
+                <div id="voteBarChart" class="-ml-2"></div>
+            </div>
+        </div>
+
+        <!-- Main Content / Right Column -->
+        <div class="w-full md:w-2/3 flex flex-col gap-8">
+            
+            <!-- Live Vote Distribution -->
+            <div class="glass-card p-10 flex-1">
+                <div class="flex justify-between items-center mb-10">
+                    <h3 class="text-2xl font-extrabold text-slate-900 tracking-tight">Live Vote Distribution</h3>
+                    <button onclick="fetchVotes()" class="text-sm font-bold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-full transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Refresh
+                    </button>
+                </div>
+
+                <div class="space-y-10">
+                    <!-- BJP Bar -->
+                    <div>
+                        <div class="flex justify-between items-end mb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs">B</div>
+                                <span class="font-extrabold text-slate-900 text-lg">BJP</span>
+                            </div>
+                            <div class="text-right">
+                                <span id="bjp-pct" class="font-extrabold text-2xl text-slate-900 tracking-tight">0%</span>
+                                <span id="bjp-count" class="text-sm font-semibold text-slate-400 ml-2">0 votes</span>
+                            </div>
+                        </div>
+                        <div class="w-full progress-track h-4">
+                            <div id="bjp-bar" class="bg-gradient-to-r from-orange-400 to-orange-500 h-4 rounded-full progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- INC Bar -->
+                    <div>
+                        <div class="flex justify-between items-end mb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">I</div>
+                                <span class="font-extrabold text-slate-900 text-lg">INC</span>
+                            </div>
+                            <div class="text-right">
+                                <span id="inc-pct" class="font-extrabold text-2xl text-slate-900 tracking-tight">0%</span>
+                                <span id="inc-count" class="text-sm font-semibold text-slate-400 ml-2">0 votes</span>
+                            </div>
+                        </div>
+                        <div class="w-full progress-track h-4">
+                            <div id="inc-bar" class="bg-gradient-to-r from-blue-500 to-blue-600 h-4 rounded-full progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- AAP Bar -->
+                    <div>
+                        <div class="flex justify-between items-end mb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-sky-100 text-sky-500 flex items-center justify-center font-bold text-xs">A</div>
+                                <span class="font-extrabold text-slate-900 text-lg">AAP</span>
+                            </div>
+                            <div class="text-right">
+                                <span id="aap-pct" class="font-extrabold text-2xl text-slate-900 tracking-tight">0%</span>
+                                <span id="aap-count" class="text-sm font-semibold text-slate-400 ml-2">0 votes</span>
+                            </div>
+                        </div>
+                        <div class="w-full progress-track h-4">
+                            <div id="aap-bar" class="bg-gradient-to-r from-sky-400 to-sky-500 h-4 rounded-full progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer Signature -->
+    <footer class="w-full text-center py-8 mt-auto">
+        <div class="inline-flex items-center justify-center px-5 py-2 rounded-full bg-slate-900/5 backdrop-blur-md border border-slate-900/10 text-sm font-bold text-slate-500 tracking-wide">
+            Created by Gurjot Singh
+        </div>
+    </footer>
+
+    <script>
+        // --- SUPABASE SETUP ---
+        const SUPABASE_URL = 'https://zdlloyoiyuyypduhvtiz.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkbGxveW9peXV5eXBkdWh2dGl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDQyNTEsImV4cCI6MjA5NDMyMDI1MX0.IicU-24sd_9R-m0mLWXfZN_XpiykVZfX3mZpcvY_NBY';
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let barChart; // Global variable to hold the ApexChart instance
+
+        async function fetchVotes() {
+            try {
+                const { data, error } = await supabaseClient.from('votes').select('party');
+                if (error) throw error;
+
+                let counts = { BJP: 0, INC: 0, AAP: 0 };
+                data.forEach(vote => {
+                    if(counts[vote.party] !== undefined) counts[vote.party]++;
+                });
+
+                const total = data.length;
+
+                // Animate Total Number
+                animateValue("total-votes", parseInt(document.getElementById('total-votes').innerText.replace(/,/g, '')) || 0, total, 1000);
+
+                // Update Horizontal Progress Bars
+                const bjpPct = total === 0 ? 0 : ((counts.BJP / total) * 100).toFixed(1);
+                const incPct = total === 0 ? 0 : ((counts.INC / total) * 100).toFixed(1);
+                const aapPct = total === 0 ? 0 : ((counts.AAP / total) * 100).toFixed(1);
+
+                document.getElementById('bjp-count').innerText = `${counts.BJP.toLocaleString()} votes`;
+                document.getElementById('inc-count').innerText = `${counts.INC.toLocaleString()} votes`;
+                document.getElementById('aap-count').innerText = `${counts.AAP.toLocaleString()} votes`;
+
+                document.getElementById('bjp-pct').innerText = `${bjpPct}%`;
+                document.getElementById('inc-pct').innerText = `${incPct}%`;
+                document.getElementById('aap-pct').innerText = `${aapPct}%`;
+
+                document.getElementById('bjp-bar').style.width = `${bjpPct}%`;
+                document.getElementById('inc-bar').style.width = `${incPct}%`;
+                document.getElementById('aap-bar').style.width = `${aapPct}%`;
+
+                // Update or Initialize ApexChart
+                if (!barChart) {
+                    const options = {
+                        series: [{
+                            name: 'Total Votes',
+                            data: [counts.BJP, counts.INC, counts.AAP]
+                        }],
+                        chart: {
+                            type: 'bar',
+                            height: 250,
+                            toolbar: { show: false },
+                            fontFamily: 'Plus Jakarta Sans, sans-serif',
+                            animations: {
+                                enabled: true,
+                                easing: 'easeinout',
+                                speed: 800,
+                                dynamicAnimation: { speed: 350 }
+                            }
+                        },
+                        plotOptions: {
+                            bar: {
+                                borderRadius: 6,
+                                columnWidth: '50%',
+                                distributed: true,
+                            }
+                        },
+                        colors: ['#f97316', '#2563eb', '#0ea5e9'], // Tailwind: orange-500, blue-600, sky-500
+                        dataLabels: { enabled: false },
+                        legend: { show: false },
+                        xaxis: {
+                            categories: ['BJP', 'INC', 'AAP'],
+                            labels: {
+                                style: { colors: '#64748b', fontSize: '13px', fontWeight: 700 }
+                            },
+                            axisBorder: { show: false },
+                            axisTicks: { show: false }
+                        },
+                        yaxis: {
+                            labels: {
+                                style: { colors: '#94a3b8', fontSize: '12px', fontWeight: 600 },
+                                formatter: (value) => { return Math.floor(value) }
+                            }
+                        },
+                        grid: {
+                            borderColor: 'rgba(148, 163, 184, 0.15)',
+                            strokeDashArray: 4,
+                            yaxis: { lines: { show: true } },
+                            xaxis: { lines: { show: false } },
+                            padding: { top: 0, right: 0, bottom: 0, left: 10 }
+                        },
+                        tooltip: {
+                            theme: 'light',
+                            y: { formatter: function (val) { return val + " votes" } }
+                        }
+                    };
+
+                    barChart = new ApexCharts(document.querySelector("#voteBarChart"), options);
+                    barChart.render();
+                } else {
+                    // If chart exists, just update the data smoothly
+                    barChart.updateSeries([{
+                        name: 'Total Votes',
+                        data: [counts.BJP, counts.INC, counts.AAP]
+                    }]);
+                }
+
+            } catch (error) {
+                console.error('Error fetching votes:', error.message);
+            }
+        }
+
+        // Smooth number counter animation
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            let range = end - start;
+            let current = start;
+            let increment = end > start ? 1 : -1;
+            let stepTime = Math.abs(Math.floor(duration / range));
+            let obj = document.getElementById(id);
+            let timer = setInterval(function() {
+                current += increment;
+                obj.innerHTML = current.toLocaleString();
+                if (current == end) { clearInterval(timer); }
+            }, stepTime);
+        }
+
+        window.onload = () => {
+            fetchVotes();
+            setInterval(fetchVotes, 5000); // Auto-refresh every 5 seconds
+        };
+    </script>
+</body>
+</html>
